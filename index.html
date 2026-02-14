@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download VisionHelp</title>
+  <meta name="description" content="Download VisionHelp — AI-powered visual assistant desktop app for macOS, Windows, and Linux." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-hover: #1a1a26;
+      --border: #222233;
+      --text: #e4e4ed;
+      --text-muted: #8888aa;
+      --accent: #6366f1;
+      --accent-glow: rgba(99,102,241,0.25);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 4rem 1.5rem;
+    }
+
+    .hero {
+      text-align: center;
+      max-width: 640px;
+      margin-bottom: 3rem;
+    }
+
+    .hero h1 {
+      font-size: 2.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #e4e4ed 0%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.3rem 1rem;
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      font-weight: 500;
+    }
+
+    .downloads {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      max-width: 860px;
+      width: 100%;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .card:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+      box-shadow: 0 0 24px var(--accent-glow);
+      transform: translateY(-2px);
+    }
+
+    .card.recommended {
+      border-color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .card .icon { font-size: 2rem; }
+
+    .card .platform {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .card .meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .card .badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      width: fit-content;
+    }
+
+    footer {
+      margin-top: 4rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    .loading { color: var(--text-muted); font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="version-badge" id="version">Loading…</div>
+    <h1>VisionHelp</h1>
+    <p>AI-powered visual assistant for your desktop. Capture your screen, get instant AI analysis and help.</p>
+  </div>
+
+  <div class="downloads" id="downloads">
+    <p class="loading">Fetching latest release…</p>
+  </div>
+
+  <footer>
+    <p>Made with ♥ · <a href="https://github.com/<YOUR_USERNAME>/visionhelp-releases/releases">All releases</a></p>
+  </footer>
+
+  <script>
+    // !! REPLACE with your actual GitHub username/org !!
+    const REPO = '<YOUR_USERNAME>/visionhelp-releases';
+
+    const PLATFORMS = [
+      { key: 'macos',   icon: '🍎', name: 'macOS',           ext: '.dmg',      meta: 'Universal (Intel + Apple Silicon)' },
+      { key: 'windows', icon: '🪟', name: 'Windows',         ext: '.exe',      meta: 'NSIS Installer' },
+      { key: 'linux-deb',icon: '🐧', name: 'Linux (Debian)', ext: '.deb',      meta: 'Debian / Ubuntu' },
+      { key: 'linux-ai', icon: '🐧', name: 'Linux (Universal)', ext: '.AppImage', meta: 'AppImage — runs anywhere' },
+    ];
+
+    function detectOS() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('mac'))   return 'macos';
+      if (ua.includes('win'))   return 'windows';
+      if (ua.includes('linux')) return 'linux-deb';
+      return null;
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const release = await res.json();
+
+        document.getElementById('version').textContent = release.tag_name;
+
+        const userOS = detectOS();
+        const container = document.getElementById('downloads');
+        container.innerHTML = '';
+
+        for (const p of PLATFORMS) {
+          const asset = release.assets.find(a => a.name.endsWith(p.ext));
+          if (!asset) continue;
+
+          const card = document.createElement('a');
+          card.href = asset.browser_download_url;
+          card.className = 'card' + (p.key === userOS || (userOS === 'linux-deb' && p.key === 'linux-ai') ? ' recommended' : '');
+          card.innerHTML = `
+            <span class="icon">${p.icon}</span>
+            <span class="platform">${p.name}</span>
+            <span class="meta">${p.meta} · ${(asset.size / 1048576).toFixed(1)} MB</span>
+            ${p.key === userOS ? '<span class="badge">Recommended for your OS</span>' : ''}
+          `;
+          container.appendChild(card);
+        }
+
+        if (!container.children.length) {
+          container.innerHTML = '<p class="loading">No assets found in the latest release.</p>';
+        }
+      } catch (err) {
+        document.getElementById('downloads').innerHTML =
+          `<p class="loading">Could not load releases. <a href="https://github.com/${REPO}/releases" style="color:var(--accent)">View on GitHub →</a></p>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
