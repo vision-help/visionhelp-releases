@@ -133,25 +133,121 @@
     footer a:hover { text-decoration: underline; }
 
     .loading { color: var(--text-muted); font-style: italic; }
+
+    /* RESET PASSWORD SECITON */
+    .reset-container {
+      display: none; /* hidden by default */
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      margin-top: 2rem;
+    }
+    .reset-container.active {
+      display: block;
+    }
+    
+    .reset-container h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: .5rem;
+      color: var(--text);
+    }
+    .reset-container .subtitle {
+      color: var(--text-muted);
+      font-size: .875rem;
+      margin-bottom: 2rem;
+    }
+    .reset-container label {
+      display: block;
+      font-size: .8125rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: .375rem;
+    }
+    .reset-container input[type="password"] {
+      width: 100%;
+      padding: .75rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .9375rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .reset-container input[type="password"]:focus {
+      border-color: var(--accent);
+    }
+    .reset-container .field + .field { margin-top: 1rem; }
+    .reset-container button {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: .75rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .reset-container button:hover { background: #4f46e5; }
+    .reset-container button:disabled { opacity: .6; cursor: not-allowed; }
+    .reset-container .msg {
+      margin-top: 1rem;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      font-size: .875rem;
+      display: none;
+    }
+    .reset-container .msg.error { background: rgba(248, 113, 113, 0.1); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.2); display: block; }
+    .reset-container .msg.success { background: rgba(74, 222, 128, 0.1); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.2); display: block; }
+    .reset-container .hint { font-size: .75rem; color: var(--text-muted); margin-top: .25rem; }
+
   </style>
 </head>
 <body>
-  <div class="hero">
+  <!-- MAIN DOWNLOAD VIEW -->
+  <div class="hero" id="mainHero">
     <div class="version-badge" id="version">Loading…</div>
     <h1>VisionHelp</h1>
     <p>AI-powered visual assistant for your desktop. Capture your screen, get instant AI analysis and help.</p>
   </div>
-
-  <div class="downloads" id="downloads">
+  <div class="downloads" id="mainDownloads">
     <p class="loading">Fetching latest release…</p>
   </div>
-
-  <footer>
+  <footer id="mainFooter">
     <p>Made with ♥ · <a href="https://github.com/vision-help/visionhelp-releases/releases">All releases</a></p>
   </footer>
 
+  <!-- RESET PASSWORD VIEW -->
+  <div class="reset-container" id="resetContainer">
+    <h1>Reset your password</h1>
+    <p class="subtitle">Enter your new password below.</p>
+    <form id="resetForm">
+      <div class="field">
+        <label for="password">New password</label>
+        <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password">
+        <p class="hint">Minimum 8 characters</p>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirm password</label>
+        <input type="password" id="confirm" name="confirm" required minlength="8" autocomplete="new-password">
+      </div>
+      <button type="submit" id="submitBtn">Reset Password</button>
+      <div id="msg" class="msg"></div>
+    </form>
+  </div>
+
   <script>
     const REPO = 'vision-help/visionhelp-releases';
+    // The backend URL is where the API requests go for password reset
+    const BACKEND_URL = 'http://localhost:8080';
 
     const PLATFORMS = [
       { key: 'macos',   icon: '🍎', name: 'macOS',           ext: '.dmg',      meta: 'Universal (Intel + Apple Silicon)' },
@@ -168,7 +264,7 @@
       return null;
     }
 
-    async function load() {
+    async function loadDownloads() {
       try {
         const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -177,7 +273,7 @@
         document.getElementById('version').textContent = release.tag_name;
 
         const userOS = detectOS();
-        const container = document.getElementById('downloads');
+        const container = document.getElementById('mainDownloads');
         container.innerHTML = '';
 
         for (const p of PLATFORMS) {
@@ -200,12 +296,81 @@
           container.innerHTML = '<p class="loading">No assets found in the latest release.</p>';
         }
       } catch (err) {
-        document.getElementById('downloads').innerHTML =
+        document.getElementById('mainDownloads').innerHTML =
           `<p class="loading">Could not load releases. <a href="https://github.com/${REPO}/releases" style="color:var(--accent)">View on GitHub →</a></p>`;
       }
     }
 
-    load();
+    function setupPasswordReset(token) {
+      document.getElementById('mainHero').style.display = 'none';
+      document.getElementById('mainDownloads').style.display = 'none';
+      document.getElementById('mainFooter').style.display = 'none';
+      
+      const container = document.getElementById('resetContainer');
+      container.classList.add('active');
+      document.title = 'Reset Password — VisionHelp';
+
+      const form = document.getElementById('resetForm');
+      const msg = document.getElementById('msg');
+      const btn = document.getElementById('submitBtn');
+
+      if (!token) {
+        msg.textContent = 'Missing reset token. Please use the link from your email.';
+        msg.className = 'msg error';
+        btn.disabled = true;
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.className = 'msg';
+        msg.style.display = 'none';
+
+        const pw = document.getElementById('password').value;
+        const confirm = document.getElementById('confirm').value;
+
+        if (pw !== confirm) {
+          msg.textContent = 'Passwords do not match.';
+          msg.className = 'msg error';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Resetting…';
+
+        try {
+          const resp = await fetch(`${BACKEND_URL}/api/v1/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: token, password: pw }),
+          });
+          const data = await resp.json();
+          if (resp.ok) {
+            msg.textContent = data.message || 'Password reset successfully!';
+            msg.className = 'msg success';
+            form.reset();
+            btn.textContent = 'Done';
+          } else {
+            msg.textContent = data.error || 'Something went wrong.';
+            msg.className = 'msg error';
+            btn.disabled = false;
+            btn.textContent = 'Reset Password';
+          }
+        } catch {
+          msg.textContent = 'Network error. Please try again.';
+          msg.className = 'msg error';
+          btn.disabled = false;
+          btn.textContent = 'Reset Password';
+        }
+      });
+    }
+
+    // Initialize based on URL parameters
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('page') === 'reset-password') {
+      setupPasswordReset(params.get('token'));
+    } else {
+      loadDownloads();
+    }
   </script>
 </body>
 </html>
