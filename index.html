@@ -209,6 +209,69 @@
     .reset-container .msg.success { background: rgba(74, 222, 128, 0.1); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.2); display: block; }
     .reset-container .hint { font-size: .75rem; color: var(--text-muted); margin-top: .25rem; }
 
+    /* VERIFY EMAIL SECTION */
+    .verify-container {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .verify-container.active {
+      display: block;
+    }
+    .verify-container .verify-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    .verify-container h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: .5rem;
+      color: var(--text);
+    }
+    .verify-container p {
+      color: var(--text-muted);
+      font-size: .9375rem;
+      line-height: 1.6;
+      margin-top: .5rem;
+    }
+    .verify-container .verify-msg {
+      margin-top: 1.25rem;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      font-size: .875rem;
+    }
+    .verify-container .verify-msg.error {
+      background: rgba(248, 113, 113, 0.1);
+      color: #f87171;
+      border: 1px solid rgba(248, 113, 113, 0.2);
+    }
+    .verify-container .verify-msg.success {
+      background: rgba(74, 222, 128, 0.1);
+      color: #4ade80;
+      border: 1px solid rgba(74, 222, 128, 0.2);
+    }
+
+    /* Spinner animation */
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 1.25rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
   </style>
 </head>
 <body>
@@ -242,6 +305,25 @@
       <button type="submit" id="submitBtn">Reset Password</button>
       <div id="msg" class="msg"></div>
     </form>
+  </div>
+
+  <!-- VERIFY EMAIL VIEW -->
+  <div class="verify-container" id="verifyContainer">
+    <div id="verifyLoading">
+      <div class="spinner"></div>
+      <h1>Verifying your email…</h1>
+      <p>Please wait while we confirm your email address.</p>
+    </div>
+    <div id="verifySuccess" style="display:none">
+      <div class="verify-icon">✅</div>
+      <h1>Email verified successfully!</h1>
+      <p>You can now log in to the app.</p>
+    </div>
+    <div id="verifyError" style="display:none">
+      <div class="verify-icon">❌</div>
+      <h1>Verification failed</h1>
+      <p id="verifyErrorMsg" class="verify-msg error"></p>
+    </div>
   </div>
 
   <script>
@@ -364,10 +446,58 @@
       });
     }
 
+    async function setupEmailVerification(token) {
+      // Hide main download view
+      document.getElementById('mainHero').style.display = 'none';
+      document.getElementById('mainDownloads').style.display = 'none';
+      document.getElementById('mainFooter').style.display = 'none';
+
+      const container = document.getElementById('verifyContainer');
+      container.classList.add('active');
+      document.title = 'Verify Email — VisionHelp';
+
+      const loadingEl = document.getElementById('verifyLoading');
+      const successEl = document.getElementById('verifySuccess');
+      const errorEl = document.getElementById('verifyError');
+      const errorMsgEl = document.getElementById('verifyErrorMsg');
+
+      if (!token) {
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorMsgEl.textContent = 'Missing verification token. Please use the link from your email.';
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${BACKEND_URL}/api/v1/auth/verify-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        const data = await resp.json();
+
+        loadingEl.style.display = 'none';
+
+        if (resp.ok) {
+          successEl.style.display = 'block';
+        } else {
+          errorEl.style.display = 'block';
+          errorMsgEl.textContent = data.error || 'Invalid or expired verification token.';
+        }
+      } catch {
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorMsgEl.textContent = 'Something went wrong. Please try again.';
+      }
+    }
+
     // Initialize based on URL parameters
     const params = new URLSearchParams(window.location.search);
-    if (params.get('page') === 'reset-password') {
+    const page = params.get('page');
+    if (page === 'reset-password') {
       setupPasswordReset(params.get('token'));
+    } else if (page === 'verify-email') {
+      setupEmailVerification(params.get('token'));
     } else {
       loadDownloads();
     }
